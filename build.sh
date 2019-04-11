@@ -53,6 +53,18 @@ get_version() {
 }
 
 
+# Fix all directory permissions to 755
+# Usage: set_permissions /path/to/dir
+fix_permissions() {
+	local d=$1
+
+	while [ "$d" != . ] ; do
+		chmod 755 "$d"
+		d=$(dirname "$d")
+	done
+}
+
+
 #
 #  Main program
 #
@@ -90,6 +102,47 @@ for f in build.conf DEBIAN/control ; do
 	fi
 done
 
+# load build config file
+if ! source conf/build.conf ; then
+	echo "There are errors inside your build.conf"
+	exit 1
+fi
+
+# test name
+if [ -z "$name" ] ; then
+	echo "You must set a name for your package"
+	exit 1
+fi
+
+# test path
+if [ -z "$path" ] ; then
+	echo "You must set a path where you sources are going!"
+	exit 1
+fi
+
+if [ -f "$current_directory"/conf/prebuild.sh ] ; then
+	echo "Run prebuild..."
+
+	if ! cd src ; then
+		echo "... Failed to go in sources directory!"
+		exit 7
+	fi
+
+	source "$current_directory"/conf/prebuild.sh
+	if [ $? != 0 ] ; then
+		echo "... Failed!"
+		exit 7
+	fi
+
+	# return in current directory
+	if ! cd "$current_directory" ; then
+		echo "... Failed to go in current directory!"
+		exit 7
+	fi
+
+	echo
+fi
+
 # prompt to choose version
 if [ -z "$version" ] ; then
 	# try to get version from latest git tag
@@ -109,26 +162,8 @@ if [ -z "$version" ] ; then
 	echo
 fi
 
-# load build config file
-if ! source conf/build.conf ; then
-	echo "There are errors inside your build.conf"
-	exit 1
-fi
-
-# test name
-if [ -z "$name" ] ; then
-	echo "You must set a name for your package"
-	exit 1
-fi
-
-# test path
-if [ -z "$path" ] ; then
-	echo "You must set a path where you sources are going!"
-	exit 1
-fi
-
 # set package name
-package=$name.deb
+package=$(echo "$name" | sed "s/{version}/$version/").deb
 
 if [ "$force_mode" != true ] ; then
 	echo "You are about to build $package"
@@ -207,17 +242,6 @@ for f in "${clean[@]}" ; do
 	fi
 done
 
-if [ -f "$current_directory"/conf/prebuild.sh ] ; then
-	echo
-	echo "Run prebuild..."
-
-	source "$current_directory"/conf/prebuild.sh
-	if [ $? != 0 ] ; then
-		echo "... Failed!"
-		exit 7
-	fi
-fi
-
 echo
 echo "Set root privileges..."
 
@@ -228,8 +252,8 @@ if [ $? != 0 ] ; then
 	exit 8
 fi
 
-# set root privileges
-sudo chown -R root:root .
+# fix directories permissions & set root privileges
+fix_permissions ".$path" && sudo chown -R root:root .
 if [ $? != 0 ] ; then
 	echo "... Failed!"
 	exit 8
