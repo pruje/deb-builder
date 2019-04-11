@@ -1,0 +1,9 @@
+Package:
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: bash
+Maintainer:
+Homepage:
+Description:
