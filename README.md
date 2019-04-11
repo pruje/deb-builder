@@ -3,7 +3,7 @@
 Build a simple deb package from a git project.
 
 ## Build instructions
-1. Create and edit your build config in `conf` (you can copy `examples`)
+1. Create and edit your build config in the `debconf` folder (you can copy `examples`)
 2. Clone your sources in `src` directory: `git clone ... src`
 3. Be sure that your submodules are initialized and up to date
 4. Run `./build.sh` script (you need to have sudo access)

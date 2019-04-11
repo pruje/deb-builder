@@ -1,6 +1,6 @@
 # Build config examples
 
-Copy this folder inside `conf` and make your changes.
+Copy this folder inside `debconf` and make your changes.
 
 ## Additionnal files
 You can add a directory named `files` and put inside any other files you want

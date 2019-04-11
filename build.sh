@@ -115,14 +115,14 @@ done
 
 # test config files
 for f in build.conf package/DEBIAN/control ; do
-	if ! [ -f conf/"$f" ] ; then
-		echo "ERROR: $f does not exists. Please verify your 'conf' folder."
+	if ! [ -f debconf/"$f" ] ; then
+		echo "ERROR: $f does not exists. Please verify your 'debconf' folder."
 		exit 1
 	fi
 done
 
 # load build config file
-if ! source conf/build.conf ; then
+if ! source debconf/build.conf ; then
 	echo "There are errors inside your build.conf"
 	exit 1
 fi
@@ -139,7 +139,7 @@ if [ -z "$path" ] ; then
 	exit 1
 fi
 
-if [ -f "$current_directory"/conf/prebuild.sh ] ; then
+if [ -f "$current_directory"/debconf/prebuild.sh ] ; then
 	echo "Run prebuild..."
 
 	if ! cd src ; then
@@ -147,7 +147,7 @@ if [ -f "$current_directory"/conf/prebuild.sh ] ; then
 		exit 7
 	fi
 
-	source "$current_directory"/conf/prebuild.sh
+	source "$current_directory"/debconf/prebuild.sh
 	if [ $? != 0 ] ; then
 		echo "... Failed!"
 		exit 7
@@ -195,7 +195,7 @@ fi
 echo
 echo "Clean & prepare build environment..."
 mkdir -p archives && clean_build && \
-cp -rp conf/package "$build_directory"
+cp -rp debconf/package "$build_directory"
 if [ $? != 0 ] ; then
 	echo "... Failed! Please check your access rights."
 	exit 3
@@ -215,22 +215,10 @@ install_path=$build_directory/$path
 mkdir -p "$(dirname "$install_path")" && \
 cp -rp src "$install_path"
 if [ $? != 0 ] ; then
-	echo "ERROR while copying sources files. Please verify your access rights."
+	echo "... Failed! Please check your access rights."
 	quit 5
 fi
 
-if [ -d "$current_directory"/conf/files ] ; then
-	echo
-	echo "Copy additionnal files..."
-
-	cp -rp "$current_directory"/conf/files/* "$build_directory"/
-	if [ $? != 0 ] ; then
-		echo "... Failed!"
-		quit 5
-	fi
-fi
-
-echo
 echo "Clean unnecessary files..."
 
 if ! cd "$install_path" ; then
@@ -273,11 +261,11 @@ if [ $? != 0 ] ; then
 fi
 
 # postbuild
-if [ -f "$current_directory"/conf/postbuild.sh ] ; then
+if [ -f "$current_directory"/debconf/postbuild.sh ] ; then
 	echo
 	echo "Run postbuild..."
 
-	source "$current_directory"/conf/postbuild.sh
+	source "$current_directory"/debconf/postbuild.sh
 	if [ $? != 0 ] ; then
 		echo "... Failed!"
 		quit 9
