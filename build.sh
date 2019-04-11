@@ -41,7 +41,15 @@ print_help() {
 # Usage: $(get_version)
 #        (to keep context)
 get_version() {
-	cd src && git describe --tags
+	cd src || return 1
+
+	local version
+	version=$(git describe --tags)
+
+	# remove 'v'
+	[ "${version:0:1}" == v ] && version=${version:1}
+
+	echo -n $version
 }
 
 
