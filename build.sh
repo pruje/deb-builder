@@ -16,6 +16,8 @@ fi
 # save current directory path
 current_directory=$(pwd)
 
+build_directory=archives/build
+
 # test if sources are there
 if ! [ -d src ] ; then
 	echo "ERROR: you must put your sources in the src directory!"
@@ -36,6 +38,7 @@ print_help() {
 	echo "   -f, --force            Do not print confimation before build"
 	echo "   -h, --help             Print this help"
 }
+
 
 # Get version from latest git tag
 # Usage: $(get_version)
@@ -62,6 +65,22 @@ fix_permissions() {
 		chmod 755 "$d"
 		d=$(dirname "$d")
 	done
+}
+
+
+# Clean build directory
+# Usage: clean_build
+clean_build() {
+	[ -d "$current_directory/$build_directory" ] || return 0
+	sudo rm -rf "$current_directory/$build_directory"
+}
+
+
+# Quit and clean build directory
+# Usage: quit EXITCODE
+quit() {
+	clean_build &> /dev/null
+	exit $1
 }
 
 
@@ -95,7 +114,7 @@ while [ $# -gt 0 ] ; do
 done
 
 # test config files
-for f in build.conf DEBIAN/control ; do
+for f in build.conf package/DEBIAN/control ; do
 	if ! [ -f conf/"$f" ] ; then
 		echo "ERROR: $f does not exists. Please verify your 'conf' folder."
 		exit 1
@@ -175,45 +194,39 @@ fi
 # clean and copy package files
 echo
 echo "Clean & prepare build environment..."
-sudo rm -rf archives/package && mkdir -p archives/package
-if [ $? != 0 ] ; then
-	echo "... Failed! Please check your access rights."
-	exit 3
-fi
-
-echo "Copy DEBIAN control..."
-cp -rp conf/DEBIAN archives/package
+mkdir -p archives && clean_build && \
+cp -rp conf/package "$build_directory"
 if [ $? != 0 ] ; then
 	echo "... Failed! Please check your access rights."
 	exit 3
 fi
 
 echo "Set version number..."
-sed -i "s/^Version: .*$/Version: $version/" archives/package/DEBIAN/control
+sed -i "s/^Version: .*$/Version: $version/" "$build_directory"/DEBIAN/control
 if [ $? != 0 ] ; then
 	echo "... Failed! Please check your access rights."
-	exit 4
+	quit 4
 fi
 
 echo "Copy sources..."
 
-install_path=archives/package/$path
+install_path=$build_directory/$path
 
 mkdir -p "$(dirname "$install_path")" && \
 cp -rp src "$install_path"
 if [ $? != 0 ] ; then
 	echo "ERROR while copying sources files. Please verify your access rights."
-	exit 5
+	quit 5
 fi
 
 if [ -d "$current_directory"/conf/files ] ; then
 	echo
 	echo "Copy additionnal files..."
 
-	cp -rp "$current_directory"/conf/files/* archives/package/
+	cp -rp "$current_directory"/conf/files/* "$build_directory"/
 	if [ $? != 0 ] ; then
 		echo "... Failed!"
-		exit 5
+		quit 5
 	fi
 fi
 
@@ -222,7 +235,7 @@ echo "Clean unnecessary files..."
 
 if ! cd "$install_path" ; then
 	echo "... Failed to go inside path directory!"
-	exit 6
+	quit 6
 fi
 
 for f in "${clean[@]}" ; do
@@ -237,7 +250,7 @@ for f in "${clean[@]}" ; do
 		echo "Delete ${files[@]}..."
 		if ! rm -rf "${files[@]}" ; then
 			echo '... Failed!'
-			exit 6
+			quit 6
 		fi
 	fi
 done
@@ -245,18 +258,18 @@ done
 echo
 echo "Set root privileges..."
 
-# go into archives directory
-cd "$current_directory"/archives/package
+# go into build directory
+cd "$current_directory/$build_directory"
 if [ $? != 0 ] ; then
-	echo "... Failed to go into archives directory!"
-	exit 8
+	echo "... Failed to go into build directory!"
+	quit 8
 fi
 
 # fix directories permissions & set root privileges
 fix_permissions ".$path" && sudo chown -R root:root .
 if [ $? != 0 ] ; then
 	echo "... Failed!"
-	exit 8
+	quit 8
 fi
 
 # postbuild
@@ -267,7 +280,7 @@ if [ -f "$current_directory"/conf/postbuild.sh ] ; then
 	source "$current_directory"/conf/postbuild.sh
 	if [ $? != 0 ] ; then
 		echo "... Failed!"
-		exit 9
+		quit 9
 	fi
 fi
 
@@ -278,15 +291,15 @@ echo "Generate deb package..."
 cd "$current_directory"/archives
 if [ $? != 0 ] ; then
 	echo "... Failed to go into archives directory!"
-	exit 10
+	quit 10
 fi
 
 # generate deb file + give ownership to current user
-sudo dpkg-deb --build package "$package" && \
+sudo dpkg-deb --build build "$package" && \
 sudo chown "$(whoami)" "$package"
 if [ $? != 0 ] ; then
 	echo "... Failed!"
-	exit 10
+	quit 10
 fi
 
 echo
@@ -296,11 +309,11 @@ echo "Create version directory..."
 mkdir -p "$version" && mv "$package" "$version"
 if [ $? != 0 ] ; then
 	echo "... Failed!"
-	exit 11
+	quit 11
 fi
 
 echo "Clean files..."
-sudo rm -rf package
+clean_build
 
 echo
 echo "Generate checksum..."
